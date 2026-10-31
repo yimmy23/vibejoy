@@ -9,8 +9,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
-Side: TypeAlias = Literal["left", "right"]
-"""Which Joy-Con the event came from."""
+Side: TypeAlias = Literal["left", "right", "iine_pro"]
+"""Which controller/profile the event came from."""
+
+StickName: TypeAlias = Literal["stick", "l-stick", "r-stick"]
+"""Which physical stick emitted the event."""
 
 Direction: TypeAlias = Literal[
     "up",
@@ -51,6 +54,7 @@ class StickEvent:
 
     side: Side
     direction: Direction | None
+    stick: StickName = "stick"
 
 
 Event: TypeAlias = ButtonEvent | StickEvent

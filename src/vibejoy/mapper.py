@@ -248,7 +248,7 @@ class Mapper:
     # ---------- Stick handling ----------
 
     def _on_stick(self, event: StickEvent) -> None:
-        stick_id = _stick_id(event.side)
+        stick_id = _stick_id(event.side, event.stick)
 
         # Always release previous stick hold/repeat/shell before considering the new direction.
         self._release_stick(stick_id, side=event.side)
@@ -256,7 +256,7 @@ class Mapper:
         if event.direction is None:
             return
 
-        action = self._lookup_stick(event.side, event.direction)
+        action = self._lookup_stick(event.side, event.stick, event.direction)
         if action is None:
             return
 
@@ -414,10 +414,16 @@ class Mapper:
             return None
         return self._precompiled.get(f"profile.{side}.buttons.{button}")
 
-    def _lookup_stick(self, side: Side, direction: Direction) -> Action | None:
+    def _lookup_stick(self, side: Side, stick: str, direction: Direction) -> Action | None:
         profile = self._config.profiles.get(side)
         if profile is None:
             return None
+        if stick != "stick":
+            spec = profile.sticks.get(stick, {}).get(direction)
+            if spec is not None:
+                return self._precompiled.get(f"profile.{side}.{stick}.{direction}")
+            if stick != "l-stick":
+                return None
         spec = profile.stick.get(direction)
         if spec is None:
             return None
@@ -431,6 +437,9 @@ class Mapper:
                 out[f"profile.{side}.buttons.{btn}"] = parse_action(spec)
             for direction, spec in profile.stick.items():
                 out[f"profile.{side}.stick.{direction}"] = parse_action(spec)
+            for stick_name, stick_map in profile.sticks.items():
+                for direction, spec in stick_map.items():
+                    out[f"profile.{side}.{stick_name}.{direction}"] = parse_action(spec)
         return out
 
 
@@ -441,8 +450,8 @@ def _button_id(side: Side, button: str) -> str:
     return f"{side}:btn:{button}"
 
 
-def _stick_id(side: Side) -> str:
-    return f"{side}:stick"
+def _stick_id(side: Side, stick: str = "stick") -> str:
+    return f"{side}:stick:{stick}"
 
 
 def _macro_guard_passes(macro: MacroDef) -> bool:

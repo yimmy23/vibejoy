@@ -64,6 +64,28 @@ def test_unknown_profile_side(tmp_path: Path) -> None:
         load_config(path)
 
 
+def test_iine_pro_profile_is_valid(tmp_path: Path) -> None:
+    path = tmp_path / "iine_pro.toml"
+    path.write_text(
+        '[profile.iine_pro.buttons]\na = "tap:enter"\n'
+        '[profile.iine_pro.stick]\nup = "repeat:up@120"\n',
+        encoding="utf-8",
+    )
+    config = load_config(path)
+    assert "iine_pro" in config.profiles
+
+
+def test_iine_pro_named_sticks_are_valid(tmp_path: Path) -> None:
+    path = tmp_path / "iine_pro.toml"
+    path.write_text(
+        '[profile.iine_pro.l-stick]\nup = "repeat:up@120"\n'
+        '[profile.iine_pro.r-stick]\ndown = "repeat:page_down@150"\n',
+        encoding="utf-8",
+    )
+    config = load_config(path)
+    assert config.profiles["iine_pro"].sticks["r-stick"]["down"] == "repeat:page_down@150"
+
+
 def test_bad_action_spec(tmp_path: Path) -> None:
     path = tmp_path / "bad.toml"
     path.write_text(

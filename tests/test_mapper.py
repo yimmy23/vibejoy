@@ -57,6 +57,7 @@ class FakeWindow:
 def _config(
     right_buttons: dict[str, str] | None = None,
     right_stick: dict[str, str] | None = None,
+    right_sticks: dict[str, dict[str, str]] | None = None,
     macros: dict[str, MacroDef] | None = None,
     long_press_ms: int = 250,
 ) -> Config:
@@ -66,6 +67,7 @@ def _config(
             "right": ProfileConfig(
                 buttons=right_buttons or {},
                 stick=right_stick or {},
+                sticks=right_sticks or {},
             ),
         },
         macros=macros or {},
@@ -159,6 +161,22 @@ class TestStickRepeat:
         before = len(kbd.events)
         mapper.poll()
         assert len(kbd.events) == before  # no more taps
+
+    def test_named_sticks_have_independent_bindings(
+        self, kbd: FakeKeyboard, win: FakeWindow
+    ) -> None:
+        mapper = Mapper(
+            _config(
+                right_stick={"up": "repeat:up@10"},
+                right_sticks={"r-stick": {"up": "repeat:page_up@10"}},
+            ),
+            kbd,
+            win,
+        )
+        mapper.on_event(StickEvent(side="right", direction="up", stick="l-stick"))
+        mapper.on_event(StickEvent(side="right", direction=None, stick="l-stick"))
+        mapper.on_event(StickEvent(side="right", direction="up", stick="r-stick"))
+        assert kbd.events == [("tap", "up"), ("tap", "page_up")]
 
 
 class TestWindowSwitch:

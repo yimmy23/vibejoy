@@ -62,6 +62,8 @@ class ProfileConfig:
     """Button name (lowercase) → action DSL string."""
     stick: dict[str, str] = field(default_factory=dict)
     """Stick direction (``up`` / ``down`` / ... ) → action DSL string."""
+    sticks: dict[str, dict[str, str]] = field(default_factory=dict)
+    """Named stick configs, e.g. ``l-stick`` / ``r-stick`` for gamepads."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,24 +215,36 @@ def _build_global(raw: dict[str, Any]) -> GlobalConfig:
 def _build_profiles(raw: dict[str, Any]) -> dict[Side, ProfileConfig]:
     profiles: dict[Side, ProfileConfig] = {}
     for side_name, body in raw.items():
-        if side_name not in ("right", "left"):
-            raise ConfigError(f"unknown profile {side_name!r} (use 'right' or 'left')")
+        if side_name not in ("right", "left", "iine_pro"):
+            raise ConfigError(f"unknown profile {side_name!r} (use 'right', 'left', or 'iine_pro')")
         if not isinstance(body, dict):
             raise ConfigError(f"[profile.{side_name}] must be a table, got {type(body).__name__}")
-        unknown = set(body) - {"buttons", "stick"}
+        unknown = set(body) - {"buttons", "stick", "l-stick", "r-stick"}
         if unknown:
             raise ConfigError(f"unknown key(s) in [profile.{side_name}]: {sorted(unknown)}")
 
         buttons_raw = body.get("buttons") or {}
         stick_raw = body.get("stick") or {}
+        named_sticks_raw = {
+            "l-stick": body.get("l-stick") or {},
+            "r-stick": body.get("r-stick") or {},
+        }
         if not isinstance(buttons_raw, dict):
             raise ConfigError(f"[profile.{side_name}.buttons] must be a table")
         if not isinstance(stick_raw, dict):
             raise ConfigError(f"[profile.{side_name}.stick] must be a table")
+        for stick_name, stick_body in named_sticks_raw.items():
+            if not isinstance(stick_body, dict):
+                raise ConfigError(f"[profile.{side_name}.{stick_name}] must be a table")
 
         profiles[side_name] = ProfileConfig(
             buttons={k.lower(): v for k, v in buttons_raw.items()},
             stick={k.lower(): v for k, v in stick_raw.items()},
+            sticks={
+                stick_name: {k.lower(): v for k, v in stick_body.items()}
+                for stick_name, stick_body in named_sticks_raw.items()
+                if stick_body
+            },
         )
     return profiles
 
@@ -266,15 +280,31 @@ def _validate_profile(
     for btn, spec in profile.buttons.items():
         _validate_action_spec(f"profile.{side}.buttons.{btn}", spec, macro_names, errors)
 
-    for direction, spec in profile.stick.items():
+    _validate_stick_map(f"profile.{side}.stick", profile.stick, macro_names, errors)
+    for stick_name, stick_map in profile.sticks.items():
+        _validate_stick_map(
+            f"profile.{side}.{stick_name}",
+            stick_map,
+            macro_names,
+            errors,
+        )
+
+
+def _validate_stick_map(
+    label: str,
+    stick: dict[str, str],
+    macro_names: set[str],
+    errors: list[str],
+) -> None:
+    for direction, spec in stick.items():
         if direction not in ALL_DIRECTIONS:
             errors.append(
-                f"profile.{side}.stick.{direction}: unknown direction "
+                f"{label}.{direction}: unknown direction "
                 f"(known: {', '.join(ALL_DIRECTIONS)})"
             )
             continue
         _validate_action_spec(
-            f"profile.{side}.stick.{direction}",
+            f"{label}.{direction}",
             spec,
             macro_names,
             errors,

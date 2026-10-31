@@ -31,7 +31,8 @@ from .config import (
 from .events import ButtonEvent, StickEvent
 from .ipc import IPCError, default_socket_path, is_daemon_running
 from .ipc import call as ipc_call
-from .joycon import discover_readers
+from .iine_pro_controller import discover_readers as discover_iine_pro_readers
+from .joycon import discover_readers as discover_joycon_readers
 from .rumble import PRESETS, Rumbler, preset_names, resolve_pattern
 
 # ---------- Entry ----------
@@ -136,9 +137,13 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 
 def cmd_discover(_args: argparse.Namespace) -> int:
-    readers = discover_readers()
+    readers = discover_joycon_readers()
+    readers.extend(discover_iine_pro_readers())
     if not readers:
-        print("no Joy-Con detected — run `vibejoy doctor` for diagnostics", file=sys.stderr)
+        print(
+            "no Joy-Con or IINE Pro controller detected — run `vibejoy doctor` for diagnostics",
+            file=sys.stderr,
+        )
         return 1
     for reader in readers:
         reader.calibrate()
@@ -172,16 +177,17 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
     else:
         print(f"  config  {cfg_path} (not yet created — will be on first `vibejoy run`)")
 
-    # 2. Joy-Con presence
-    readers = discover_readers()
+    # 2. Controller presence
+    readers = discover_joycon_readers()
+    readers.extend(discover_iine_pro_readers())
     if readers:
         sides = ", ".join(r.side for r in readers)
-        print(f"✓ joycon  connected: {sides}")
+        print(f"✓ input   connected: {sides}")
         for r in readers:
             r.close()
     else:
         problems += 1
-        print("✗ joycon  none detected (pair via System Settings → Bluetooth)")
+        print("✗ input   none detected (pair Joy-Con or IINE Pro controller via Bluetooth)")
 
     # 3. pynput permissions probe
     try:
